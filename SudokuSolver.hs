@@ -1,3 +1,29 @@
+-- INTRODUCTION ---------------------------------------------------------------
+--
+--   Author:
+--       Dr-Lord
+--   Version:
+--       0.1 - 11-12/02/2015
+--
+--   Repository:
+--       https://github.com/Dr-Lord/Sudoku-Solver
+--
+--   Description:
+--      This program takes incomplete sudokus (0s for empty cells) from a file
+--      and returns its solution in another file.
+--      It was created sometime during August 2014 and uploaded to GitHub in
+--      January 2015.
+--
+--   Sections:
+--       1 - Imports and Type declarations
+--       2 - Testing Stuff
+--       3 - To Do
+--       4 - Main Functions
+--       5 - Other Functions
+
+---- 1 - IMPORTS AND TYPE DECLARATIONS -----------------------------------------
+
+
 import Data.List (intersect, union, delete, (\\), nub, sort)
 
 type Group      = [Int]
@@ -6,8 +32,8 @@ type SudokuPoss = [[(Int, Group)]]
 type Coords     = (Int, Int)
 data Status     = Solved | Simple | Groups | SubGroups | AnyGroups | Unsolved deriving (Eq, Ord, Show)
 
-------------------------------------------------------------------------------
--- Testing Stuff
+---- 2 - TESTING STUFF ---------------------------------------------------------
+
 -- Infinite Loop for sudokus of file at lines: 45, 89
 
 testSudoku = "4 0 0 0 0 0 0 2 0\n\
@@ -57,11 +83,16 @@ pps = pp . sn
 fs = mapSudoku (\s (r,c)-> fst $ (s!!r!!c))
 sn = mapSudoku (\s (r,c)-> snd $ (s!!r!!c))
 
-------------------------------------------------------------------------------
+
+---- 3 - TO DO -----------------------------------------------------------------
+
 -- ADD: NON-DETERMINISTIC SOLUTION
 --      I/O OF LISTS OF SUDOKUS, BOTH IN SINGLE ROWS OR SQUARE FORMATS
 --      DIFFICULTY RATING BASED ON MAX STATUS REACHED
 --      REVISE THE SOLVING PROCEDURE DIFFICULTY INCREASE: CONSIDER GOING DOWN IN SOME POSITIVE CASES
+
+
+---- 4 - MAIN FUNCTIONS --------------------------------------------------------
 
 -- Data Flow Functions
 
@@ -174,7 +205,8 @@ justInSubGroup ((r,c):rcs) prevSps sps
 -- http://sudoku-solutions.com/ For hints
 
 
--- Other Functions
+
+---- 5 - OTHER FUNCTIONS -------------------------------------------------------
 
     -- Map any Sudoku type to another one
 mapSudoku :: ([[a]] -> Coords -> b) -> [[a]] -> [[b]]
