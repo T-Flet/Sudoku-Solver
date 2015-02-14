@@ -96,10 +96,12 @@ sn = mapSudoku (\s (r,c)-> snd $ (s!!r!!c))
 
 -- Data Flow Functions
 
+    -- IO Function: Read from file and write solution to other file
 main = do
     contents <- readFile "Sudoku.txt"
     writeFile "Solution.txt" (stringify . solve Simple . sudokise $ contents)
 
+    -- Transform Sudoku String into SudokuPoss data structure
 sudokise :: String -> SudokuPoss
 sudokise = mapSudoku addPoss . sudGrid
     where sudGrid = map (map (read :: String -> Int) . words) . lines
@@ -108,12 +110,14 @@ sudokise = mapSudoku addPoss . sudGrid
               | otherwise = (val, [])
                 where val = s!!r!!c
 
+    -- Transform SudokuPoss data structure into String
 stringify :: SudokuPoss -> String
 stringify = unlines . map unwords . mapSudoku (\s (r,c)-> show . fst $ (s!!r!!c))
 
 
 -- Solving Functions
 
+    -- Actual solving function, regulating solving algorithms flow
 solve :: Status -> SudokuPoss -> SudokuPoss
 solve status sps
     | status == Solved   = sps
