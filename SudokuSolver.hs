@@ -3,7 +3,7 @@
 --   Author:
 --       Dr-Lord
 --   Version:
---       0.1 - 11-12/02/2015
+--       0.1 - 14-15/02/2015
 --
 --   Repository:
 --       https://github.com/Dr-Lord/Sudoku-Solver
@@ -273,23 +273,27 @@ remove ns rcs anySudokuType (r,c)
 getPosses :: SudokuPoss -> [Coords] -> Group
 getPosses sps = nub . concat . mapCoords snd sps
 
+    -- Given a Sudoku grid and a cell's coordinates, return its possible numbers
 posNums :: Sudoku -> Coords -> Group
 posNums sud (row, col) = groupPossesIntersect $ getGroups sud (row, col)
 
+    -- Intersect all entries of a list of groups and return the missing numbers
 groupPossesIntersect :: [Group] -> Group
 groupPossesIntersect = ([1..9] \\) . foldr step []
     where step group []  = group
           step group acc = union acc group
 
-    -- Groups Coordinates Functions
+    -- Given a cell's coordinates, return the union of the coordinates of its groups
 unitedCoords :: Coords -> [Coords]
 unitedCoords = foldr step [] . getGroupsCoords
     where step coords []  = coords
           step coords acc = union coords acc
 
+    -- Given a Sudoku grid and a cell's coordinates, return its groups' contents
 getGroups :: Sudoku -> Coords -> [Group]
 getGroups sud = map (mapCoords id sud) . getGroupsCoords
 
+    -- Given a cell's coordinates, return the coordinates lists of its groups
 getGroupsCoords :: Coords -> [[Coords]]
 getGroupsCoords (row, col) = [getRow, getCol, getSqu]
     where getRow = [(row,c) | c <- [0..8]]
