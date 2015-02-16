@@ -91,6 +91,9 @@ sn = mapSudoku (\s (r,c)-> snd $ (s!!r!!c))
 --      DIFFICULTY RATING BASED ON MAX STATUS REACHED
 --      REVISE THE SOLVING PROCEDURE DIFFICULTY INCREASE: CONSIDER GOING DOWN IN SOME POSITIVE CASES
 
+-- PROCEED TO MORE COMPLEX DEDUCTIONS: GOTO www.sudokudragon.com/sudokustrategy.htm OR SIMILAR: Sub-group exclusion rule, General permutation rule, then others
+-- http://sudoku-solutions.com/ For hints
+
 
 ---- 4 - MAIN FUNCTIONS --------------------------------------------------------
 
@@ -190,6 +193,7 @@ justInSubGroup ((r,c):rcs) prevSps sps
               [srRowRestC, srSquRestC] = map (\\ srSGC) [rowGC, squGC]
               [scColRestC, scSquRestC] = map (\\ scSGC) [colGC, squGC]
 
+
     -- Check whether a set of between 1 and 6 numbers in a group can only be in as many cells in it and act, otherwise declare Unsolved (Also covers the uniqueInGroup function: case of 1 num in 1 cell)
 -- justInAnyGroup :: [Coords] -> SudokuPoss -> SudokuPoss -> (Status,SudokuPoss)
 -- justInAnyGroup [] prevSps sps
@@ -205,8 +209,7 @@ justInSubGroup ((r,c):rcs) prevSps sps
               -- [rowGC, colGC, squGC] = getGroupsCoords (r,c)
 
 
--- PROCEED TO MORE COMPLEX DEDUCTIONS: GOTO www.sudokudragon.com/sudokustrategy.htm OR SIMILAR: Sub-group exclusion rule, General permutation rule, then others
--- http://sudoku-solutions.com/ For hints
+
 
 
 
