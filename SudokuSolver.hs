@@ -3,7 +3,7 @@
 --   Author:
 --       Dr-Lord
 --   Version:
---       0.1 - 14-15/02/2015
+--       0.2 - 14-15/02/2015
 --
 --   Repository:
 --       https://github.com/Dr-Lord/Sudoku-Solver
@@ -24,7 +24,8 @@
 ---- 1 - IMPORTS AND TYPE DECLARATIONS -----------------------------------------
 
 
-import Data.List (intersect, union, delete, (\\), nub, sort)
+import Data.List (intersect, union, delete, (\\), nub, sort, filter)
+import Control.Applicative ((<$>), (<*>))
 
 type Group      = [Int]
 type Sudoku     = [Group]
@@ -35,6 +36,16 @@ data Status     = Solved | Simple | Groups | SubGroups | AnyGroups | Unsolved de
 ---- 2 - TESTING STUFF ---------------------------------------------------------
 
 -- Infinite Loop for sudokus of file at lines: 45, 89
+
+testSudokuSimple = "0 0 0 6 8 9 1 0 0\n\
+                   \8 0 0 0 0 0 0 2 9\n\
+                   \1 5 0 0 0 0 0 0 8\n\
+                   \4 0 3 0 0 0 0 5 0\n\
+                   \2 0 0 0 0 5 0 0 0\n\
+                   \0 9 0 2 4 0 8 0 1\n\
+                   \0 8 4 7 0 0 9 1 0\n\
+                   \5 0 0 0 0 0 0 6 0\n\
+                   \0 6 0 4 1 0 0 0 0"
 
 testSudoku = "4 0 0 0 0 0 0 2 0\n\
              \0 6 3 4 0 7 1 0 0\n\
@@ -67,6 +78,8 @@ afterUnique = "4 8 0 0 0 0 3 2 7\n\
               \8 4 7 5 1 6 2 9 3"
 
 
+tSimple = sudokise testSudokuSimple
+
 tSud = sudokise testSudoku
 tAft = sudokise afterSimple
 tAUn = sudokise afterUnique
@@ -80,8 +93,8 @@ pp  = mapM_ print
 ppf, pps :: SudokuPoss -> IO ()
 ppf = pp . fs
 pps = pp . sn
-fs = mapSudoku (\s (r,c)-> fst $ (s!!r!!c))
-sn = mapSudoku (\s (r,c)-> snd $ (s!!r!!c))
+fs = mapSudoku (\s (r,c)-> fst (s!!r!!c))
+sn = mapSudoku (\s (r,c)-> snd (s!!r!!c))
 
 
 ---- 3 - TO DO -----------------------------------------------------------------
@@ -142,7 +155,7 @@ solve status sps
 uniqueChoices :: [Coords] -> SudokuPoss -> (Status,SudokuPoss)
 uniqueChoices [] sps = (Groups, sps)
 uniqueChoices ((r,c):rcs) sps
-    | length p == 1 = uniqueChoices rcs (updateGrids (head p) (r,c) sps)
+    | length p == 1 = uniqueChoices rcs (updateSudoku (head p) (r,c) sps)
     | otherwise     = uniqueChoices rcs sps
         where (s,p) = sps!!r!!c
 
@@ -156,12 +169,12 @@ uniqueInGroup ((r,c):rcs) prevSps sps
     | not . null $ unCol = updateWith unCol
     | not . null $ unSqu = updateWith unSqu
     | otherwise = uniqueInGroup rcs prevSps sps
-        where updateWith unique = uniqueInGroup rcs prevSps (updateGrids (head unique) (r,c) sps)
-              [unRow, unCol, unSqu] = map (uniquePoss . (delete (r,c))) $ getGroupsCoords (r,c)
+        where updateWith unique = uniqueInGroup rcs prevSps (updateSudoku (head unique) (r,c) sps)
+              [unRow, unCol, unSqu] = map (uniquePoss . delete (r,c)) $ getGroupsCoords (r,c)
               uniquePoss :: [Coords] -> [Int]
-              uniquePoss groupCoords = cellPosses \\ (otherPosses groupCoords)
+              uniquePoss groupCoords = cellPosses \\ otherPosses groupCoords
               cellPosses = snd (sps!!r!!c)
-              otherPosses = concat . map (\(row,col)-> snd (sps!!row!!col))
+              otherPosses = concatMap (\(row,col)-> snd (sps!!row!!col))
 
     -- Check whether a number can only be in a single sub-group of any one group and then remove them from the other group, otherwise proceed to further deductions
 justInSubGroup :: [Coords] -> SudokuPoss -> SudokuPoss -> (Status,SudokuPoss)
@@ -169,7 +182,7 @@ justInSubGroup [] prevSps sps
     | sps == prevSps = (Unsolved, sps)--(AnyGroups, sps)
     | otherwise      = (SubGroups, sps)
 justInSubGroup ((r,c):rcs) prevSps sps
-    | or $ map (not . null) allOnlysP = justInSubGroup rcs prevSps newSps
+    | any (not . null) allOnlysP = justInSubGroup rcs prevSps newSps
     | otherwise                       = justInSubGroup rcs prevSps sps
         where newSps = foldr actOnGrid sps $ zip allOnlysP allRestsC
               actOnGrid :: (Group,[Coords]) -> SudokuPoss -> SudokuPoss
@@ -209,11 +222,39 @@ justInSubGroup ((r,c):rcs) prevSps sps
               -- [rowGC, colGC, squGC] = getGroupsCoords (r,c)
 
 
+    -- Find set of n numbers in n cells in a group
+actOnNSets :: SudokuPoss -> [Coords] -> SudokuPoss
+actOnNSets sps groupCoords = sps --CHANGE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    where newGroupCells = foldr removeNums groupCells nSetsTuples
+          removeNums (nSetCoords, npNums) = map checkCell
+            where checkCell cell@(rc, (0,ps))
+                    | rc `notElem` nSetCoords = case ps \\ npNums of
+                        [n] -> (rc, (n,[]))
+                        ns  -> (rc, (0,ns))
+                    | otherwise               = cell
+                  checkCell nonZeroCell = nonZeroCell
+          nSetsTuples = filter ((==) <$> length . fst <*> length . snd) allCombsTuples
+          allCombsTuples = map ((,) <$> map fst <*> foldr union [] . map (snd . snd)) allCombs
+          allCombs = concatMap (`combinations` emptyCells) [1.. length emptyCells]
+          emptyCells = filter ((==0) . fst . snd) groupCells
+          groupCells = map (\rc@(r,c) -> (rc, sps!!r!!c)) groupCoords
+            -- MAKE UPDATECELLS TAKE A LIST OF TUPLES AND COORDINATES TO UPDATE A GRID,
+            -- THIS IN ORDER TO LET THIS AND OTHER FUNCTIONS JUST RETURN THE CELLS AND
+            -- RESPECTIVE COORDINATES WHICH HAVE TO BE UPDATED
 
-
+--let emptyCells = [((0,0),(0,[2,3])),((1,0),(0,[3,5])),((3,2),(0,[2,5])),((5,3),(0,[6,7]))]
 
 
 ---- 5 - OTHER FUNCTIONS -------------------------------------------------------
+
+    -- All Coordinates
+allCoords = [(r,c) | r <- [0..8], c <- [0..8]] :: [Coords]
+
+    -- Sudoku checks
+simple, solved :: SudokuPoss -> Bool
+simple = any (any ((\p->length p == 1) . snd))
+solved = all (all ((/=0) . fst))
+
 
     -- Map any Sudoku type to another one
 mapSudoku :: ([[a]] -> Coords -> b) -> [[a]] -> [[b]]
@@ -223,31 +264,46 @@ mapSudoku f anySudokuType = map (\row -> map (\col -> f anySudokuType (row, col)
 mapCoords :: (a -> b) -> [[a]] -> [Coords] -> [b]
 mapCoords f anySudokuType = map (\(r,c)-> f $ anySudokuType!!r!!c)
 
-    -- All Coordinates
-allCoords = [(r,c) | r <- [0..8], c <- [0..8]] :: [Coords]
+  -- Map any Sudoku type just on some coordinates to "update" it: same type of output
+mapSudokuOn :: (a -> a) -> [[a]] -> [Coords] -> [[a]]
+mapSudokuOn f anySudokuType rcs = map (\row -> map (\col -> checkCell (row, col)) [0..8]) [0..8]
+  where checkCell rc@(r,c)
+          | rc `elem` rcs = f $ anySudokuType!!r!!c
+          | otherwise     =     anySudokuType!!r!!c
 
-    -- Sudoku checks
-simple, solved :: SudokuPoss -> Bool
-simple = or  . map (any ((\p->length p == 1) . snd))
-solved = and . map (all ((/=0) . fst))
+ -- Same as above but with a distinction for a specific cell
+ -- NOTE: The cell does not need to be in the Coords list as well
+mapSudokuOnBut :: (a -> a) -> (a -> a) -> [[a]] -> [Coords] -> Coords -> [[a]]
+mapSudokuOnBut f fCell anySudokuType rcs rcCell = map (\row -> map (\col -> checkCell (row, col)) [0..8]) [0..8]
+  where checkCell rc@(r,c)
+          | rc == rcCell  = fCell val
+          | rc `elem` rcs = f val
+          | otherwise     = val
+            where val = anySudokuType!!r!!c
 
-    -- Write and remove a number
-updateGrids :: Int -> Coords -> SudokuPoss -> SudokuPoss
-updateGrids num rc@(row,col) sps = mapSudoku (writeAndRemove (unitedCoords rc)) sps
-    where writeAndRemove :: [Coords] -> (SudokuPoss -> Coords -> (Int, [Int]))
-          writeAndRemove rcs sps (r,c)
-            | (r,c) == rc                      = (num, [])
-            | (r,c) `elem` rcs && num `elem` p = if length p' == 1 then (head p', p') else (s, p')
-            | otherwise                        = val
-                where p' = delete num p
-                      val@(s, p) = sps!!r!!c
+            -- REDO A SIMILAR FUNCTION FOR NPLETS
+  -- Write a value in a cell and recursively cascade the grid's update
+updateSudoku :: Int -> Coords -> SudokuPoss -> SudokuPoss
+updateSudoku num rcCell = updateSudoku' [(rcCell, num)]
+  where updateSudoku' :: [(Coords,Int)] -> SudokuPoss -> SudokuPoss
+        updateSudoku' []            sps = sps
+        updateSudoku' ((rcC,n):cis) sps = case foldr unique [] rcs of
+            []  -> sps'
+            ucs -> updateSudoku' (cis ++ ucs) sps'
+          where unique rc@(r,c) acc = case snd $ sps'!!r!!c of
+                  [newNum] -> (rc,newNum):acc
+                  _        -> acc
+                sps' = mapSudokuOnBut (\(s,ps)->(s, delete n ps)) (const (n,[])) sps rcs rcC
+                rcs = unitedCoords rcC
 
+
+-- THE FOLLOWING FUNCTION IS MADE OBSOLETE BY updateSudoku
     -- Just remove a list of numbers
 remove :: [Int] -> [Coords] -> (SudokuPoss -> Coords -> (Int, Group))
 remove ns rcs anySudokuType (r,c)
     | (r,c) `elem` rcs = if length p' == 1 then (head p', p') else (s, p')
     | otherwise        = val
-        where p' = (p \\ ns)-- If any of ns is in p they will be removed, otherwise they will not be.
+        where p' = p \\ ns -- If any of ns is in p they will be removed, otherwise they will not be.
               val@(s, p) = anySudokuType!!r!!c
 
     -- Find set of n numbers in n cells in a group
@@ -271,7 +327,6 @@ remove ns rcs anySudokuType (r,c)
           -- numsIndex = map (find.(:[])) [1..9]
           -- find nums = filter (\(r,c)->null $ nums \\ (snd $ sps!!r!!c)) groupCoords
 
-
     -- Possible numbers functions
 getPosses :: SudokuPoss -> [Coords] -> Group
 getPosses sps = nub . concat . mapCoords snd sps
@@ -284,13 +339,11 @@ posNums sud (row, col) = groupPossesIntersect $ getGroups sud (row, col)
 groupPossesIntersect :: [Group] -> Group
 groupPossesIntersect = ([1..9] \\) . foldr step []
     where step group []  = group
-          step group acc = union acc group
+          step group acc = acc `union` group
 
     -- Given a cell's coordinates, return the union of the coordinates of its groups
 unitedCoords :: Coords -> [Coords]
-unitedCoords = foldr step [] . getGroupsCoords
-    where step coords []  = coords
-          step coords acc = union coords acc
+unitedCoords = foldr union [] . getGroupsCoords
 
     -- Given a Sudoku grid and a cell's coordinates, return its groups' contents
 getGroups :: Sudoku -> Coords -> [Group]
@@ -304,3 +357,15 @@ getGroupsCoords (row, col) = [getRow, getCol, getSqu]
           getSqu = [(3*sqRow+n,3*sqCol+m) | n <- [0..2], m <- [0..2]]
             where sqRow = row `div` 3 :: Int
                   sqCol = col `div` 3 :: Int
+
+
+    -- Same function as in my GeneralFunctions package
+combinations :: Int -> [a] -> [[a]]
+combinations k xs = combinations' (length xs) k xs
+  where combinations' _ _  [] = []
+        combinations' n k' yys@(y:ys)
+          | k' == 0   = [[]]
+          | k' >= n   = [yys]
+          | otherwise = map (y:) nkMinus1 ++ nMinus1
+            where nkMinus1 = combinations' (n-1) (k'-1) ys
+                  nMinus1  = combinations' (n-1)  k'    ys
