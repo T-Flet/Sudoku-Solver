@@ -3,7 +3,7 @@
 --   Author:
 --       Dr-Lord
 --   Version:
---       0.3 14-15/02/2015
+--       0.4 26-27/08/2015
 --
 --   Repository:
 --       https://github.com/Dr-Lord/Sudoku-Solver
@@ -145,7 +145,7 @@ solve status sps
             Simple    -> uniqueChoices  allCoords sps
             Groups    -> uniqueInGroup  allCoords sps sps
             SubGroups -> justInSubGroup allCoords sps sps
-            -- NPlets    -> nPletsInNCells allGroups sps sps
+            NPlets    -> nPletsInNCells allGroups sps sps
             Unsolved  -> (Unsolved, sps)
           revisedStatus
             | solved sps = Solved
@@ -180,7 +180,7 @@ uniqueInGroup ((r,c):rcs) prevSps sps
     -- Check whether some numbers can only be in a single sub-group of any one group and then remove them from the other group, otherwise proceed to further deductions
 justInSubGroup :: [Coords] -> SudokuPoss -> SudokuPoss -> (Status,SudokuPoss)
 justInSubGroup [] prevSps sps
-    | sps == prevSps = (Unsolved, sps)--(AnyGroups, sps)
+    | sps == prevSps = (NPlets, sps)
     | otherwise      = (SubGroups, sps)
 justInSubGroup ((r,c):rcs) prevSps sps
     | any (not . null) allOnlysP = justInSubGroup rcs prevSps newSps
@@ -217,13 +217,13 @@ nPletsInNCells (rcs:rcss) prevSps sps = nPletsInNCells rcss prevSps newSps
   where newSps = actOnNPlets sps rcs
 
 
-    -- Find set of n numbers in n cells in a group
+    -- Find set of n numbers in n cells in a group and remove those numbers from the other cells in the group
 actOnNPlets :: SudokuPoss -> [Coords] -> SudokuPoss
 actOnNPlets sps groupCoords = foldl remAndUpd sps nSetsTuples
-    where remAndUpd sps' (rcs,nums) = removeAndUpdate nums rcs sps'
+    where remAndUpd sps' (rcs,nums) = removeAndUpdate nums (groupCoords \\ rcs) sps'
           nSetsTuples = filter ((==) <$> length . fst <*> length . snd) allCombsTuples
           allCombsTuples = map ((,) <$> map fst <*> foldr union [] . map (snd . snd)) allCombs
-          allCombs = concatMap (`combinations` emptyCells) [1.. length emptyCells]
+          allCombs = concatMap (`combinations` emptyCells) [1.. length emptyCells - 1]
           emptyCells = filter ((==0) . fst . snd) groupCells
           groupCells = map (\rc@(r,c) -> (rc, sps!!r!!c)) groupCoords
 
